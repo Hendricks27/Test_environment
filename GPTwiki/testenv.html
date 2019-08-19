@@ -1,0 +1,48 @@
+
+<!doctype html>
+<html>
+<head>
+    <title>Spectrum Viewer</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../JSWidgets/MS_Viewer/spectrum-viewer.css" type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js" charset="utf-8"></script>
+    <script src="https://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+    <script src="../../JSWidgets/MS_Viewer/MSV.js"></script>
+    <script src="../../JSWidgets/MS_Viewer/spectrum-parsers.js"></script>
+    <script src="../../JSWidgets/MS_Viewer/util.js"></script>
+</head>
+<body>
+<h1>Click on the title to collapse or extend the mass spectra.</h1>
+<div class="specpanel1"></div>
+<div class="specpanel2" style="border: lightblue"></div>
+<script type="text/javascript">
+
+    params = {
+        spectra: "test_data/",
+        format: "json",
+        annotations: "test_data/102.json",
+        zoomHeight: false
+    };
+
+
+    var scans = [101];
+
+    for (var sc of scans) {
+        params["scan"] = sc;
+        // console.log(params);
+        params["spectra"] = "test_data/" + sc + ".json";
+        msmsv.showLabelledSpectrum('specpanel2','spec'+sc,params);
+    }
+
+    var titles = [];
+    for (var i in scans){
+        var titleCont = "Mass Spectra for Scan Number: "+scans[i];
+        titles.push(titleCont);
+    }
+
+    msmsv.addTitles('specpanel2', titles, 4, "h2", [false]);
+
+
+</script>
+</body>
+</html>
