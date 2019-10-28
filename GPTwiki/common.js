@@ -21,17 +21,17 @@ function checkElement() {
         }
         var scandetails = sth.split(";");
         var precscan = scandetails[3];
-        if (precscan != lastprecscan && 0) {
-            paraFromPage.push({title: "Scan: "+precscan, scan: precscan, annotations: 0});
+        if (precscan != lastprecscan) {
+            paraFromPage.push({title: "Scan: "+precscan, scan: precscan, annotations: false, zoomHeight: true});
             lastprecscan = precscan;
         }
         var title = "";
         if (scandetails.length == 2) {
             title = "Scan: "+scandetails[0]+" ("+scandetails[1]+")";
         } else {
-            title = "Scan: "+scandetails[0]+" ("+scandetails[1]+" @ "+scandetails[2]+" min, m/z "+scandetails[4]+")";
+            title = "Scan: "+scandetails[0]+" ("+scandetails[1]+" @ "+scandetails[2]+" min, m/z "+scandetails[4]+" scan " +scandetails[3]+")";
         }
-        paraFromPage.push({title: title, scan: scandetails[0], annotations: 1});
+        paraFromPage.push({title: title, scan: scandetails[0], annotations: true});
     }
 
     msele.innerHTML = "";
@@ -44,11 +44,12 @@ if (!( Object.keys(paraFromPage).length === 0 && paraFromPage.constructor === Ob
 
 function injectResources() {
 
+    //https://cdn.jsdelivr.net/gh/glygen-glycan-data/JSWidgets/MS_Viewer/
     var external_resources = [
-        "https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js",
-        "https://cdn.jsdelivr.net/gh/glygen-glycan-data/JSWidgets/MS_Viewer/spectrum-parsers.js",
-        "https://cdn.jsdelivr.net/gh/glygen-glycan-data/JSWidgets/MS_Viewer/MSV.js",
-        "https://cdn.jsdelivr.net/gh/glygen-glycan-data/JSWidgets/MS_Viewer/util.js"
+        "https://cdnjs.cloudflare.com/ajax/libs/d3/5.12.0/d3.min.js",
+        "./spectrum-parsers.js",
+        "./MSV.js",
+        "./util.js"
     ];
 
     var js_status = {};
@@ -58,9 +59,19 @@ function injectResources() {
         getScript(jsurl, sync1);
     }
 
-    jQuery.ajaxSetup({cache: true});
+    function getScriptCached(url, callback) {
+        jQuery.ajax({
+            type: "GET",
+            url: url,
+            success: callback,
+            dataType: "script",
+            cache: true
+        });
+    }
+
+    //jQuery.ajaxSetup({cache: true});
     function getScript(url, func) {
-        jQuery.getScript(url, function () {
+        getScriptCached(url, function () {
             js_status[url] = true;
             func();
         });
@@ -83,7 +94,7 @@ function injectResources() {
     }
 
     function getD3TIP() {
-        getScript("https://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js", sync2);
+        getScript("https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js", sync2);
     }
 
     function sync2() {
@@ -96,62 +107,75 @@ function loadSVG() {
     // console.log("Start drawing");
 
     var pot = document.getElementsByClassName("mw-parser-output")[0];
-    var chromatographContainer = document.createElement("div");
-    chromatographContainer.setAttribute("class", "specpane0");
-    pot.appendChild(chromatographContainer);
 
     var msContainer = document.createElement("div");
-    msContainer.setAttribute("class", "specpanel");
+    msContainer.setAttribute("id", "specpanel");
     pot.appendChild(msContainer);
 
     var peptideAcc = document.getElementById("msv_para").getAttribute("data-peptide");
     var charger = document.getElementById("msv_para").getAttribute("data-z1");
     var pmz = document.getElementById("msv_para").getAttribute("data-mz1");
     var spectra_folder = document.getElementById("msv_para").getAttribute("data-spectra");
+    var showxic = document.getElementById("msv_para").getAttribute("data-showxic") || "true";
+
+    // convert to boolean...
+    showxic = (showxic.trim().toLowerCase() != "false");
+
+    var showcycle = document.getElementById("msv_para").getAttribute("data-showcycle") || "false,true,true";
+
+    // convert to array of boolean...
+    showcycle = showcycle.split(",");
+    var showcyclearray = [];
+    for (var i in showcycle) {
+        showcyclearray.push((showcycle[i].trim().toLowerCase() != "false"));
+    }
 
     var param0 = {
         spectra: "",
         format: "json",
-        graphtype: "chromatogram"
-    };
-    param0["spectra"] = "https://edwardslab.bmcb.georgetown.edu/~nedwards/dropbox/pBYmLSkGeq/"+spectra_folder+"/" + peptideAcc + "." + charger + '.json';
-    param0["width"] = pot.clientWidth * 0.995;
-    msmsv.showLabelledSpectrum('specpane0','chrom', param0);
-    msmsv.addTitles('specpane0', ["XIC: m/z "+pmz], 1, "h3");
-
-    var titles = [];
-
-    var params = {
-        spectra: "",
-        format: "json",
-        scan: "",
-        annotations: ""
+        graphtype: "chromatogram",
+        zoomHeight: true,
+        zoomgroup: 0,
+        title: "Chromatogram"
     };
 
-    // Delete
-    // params.spectra = "MS_24_UO1_HCD20_5X25_EThcd_nondplserum_neutry3.mgf";
+    msv = msv();
 
-    params["width"] = pot.clientWidth * 0.995;
+    if (showxic) {
+
+        param0["spectra"] = "https://edwardslab.bmcb.georgetown.edu/~nedwards/dropbox/pBYmLSkGeq/" + spectra_folder + "/" + peptideAcc + "." + charger + '.json';
+        param0["width"] = pot.clientWidth * 0.995;
+        msv.addLabelledSpectrum('specpanel','chrom', param0);
+    }
+
     for (var i in paraFromPage) {
         var sc = paraFromPage[i]["scan"];
         var title = paraFromPage[i]["title"];
+        var params = {
+            scan: sc,
+            format: "json",
+            spectra: "https://edwardslab.bmcb.georgetown.edu/~nedwards/dropbox/pBYmLSkGeq/" + spectra_folder + "/" + sc + '.json',
+            width: pot.clientWidth * 0.995,
+            zoomgroup: 1,
+            show: false,
+            title: title
+        };
 
-        params["scan"] = sc;
-        //params["spectra"] = "https://cdn.jsdelivr.net/gh/glygen-glycan-data/JSWidgets/MS_Viewer/MS_24_UO1_HCD20_5X25_EThcd_nondplserum_neutry3/" + sc + '.json';
-        params["spectra"] = "https://edwardslab.bmcb.georgetown.edu/~nedwards/dropbox/pBYmLSkGeq/" + spectra_folder + "/" + sc + '.json';
-
-        if (paraFromPage[i]["annotations"] == 1) {
+        if (paraFromPage[i]["annotations"]) {
             params["annotations"] = "https://edwardslab.bmcb.georgetown.edu/~nedwards/dropbox/pBYmLSkGeq/annotations/" + peptideAcc + "." + charger + ".json";
-        } else {
-            delete params["annotations"];
         }
-        // console.log(params);
-        msmsv.showLabelledSpectrum('specpanel','spec'+sc, params);
-        titles.push(title);
+        if (paraFromPage[i]["zoomHeight"]) {
+            params["zoomHeight"] = true;
+        } else {
+            params["zoomHeight"] = false;
+        }
+
+        if (["12869", "12871"].includes(sc)){
+            params["show"] = true;
+        }
+        msv.addLabelledSpectrum('specpanel','spec'+sc, params);
     }
 
+    msv.done();
 
-    msmsv.addTitles('specpanel', titles, 2, "h3");
 }
-
-console.log(100);
